@@ -49,11 +49,21 @@ def _diffusion_loss(
   model: torch.nn.Module | DiffusionDenoiser,
   scheduler: DDPMScheduler,
   x_0: torch.Tensor,
+  num_noise_samples: int = 10,
 ) -> torch.Tensor:
-  """Standard DDPM epsilon-prediction loss for one batch."""
-  t = scheduler.sample_timesteps(x_0.shape[0], x_0.device)
-  noise = torch.randn_like(x_0)
-  x_t = scheduler.add_noise(x_0, noise, t)
+  """DDPM epsilon-prediction loss with multiple noise samples per data point.
+
+  Each sample in the batch is paired with ``num_noise_samples`` random
+  (timestep, noise) draws, giving lower-variance gradients than a single
+  draw without the cost of exhausting all T timesteps.
+  """
+  B = x_0.shape[0]
+  K = num_noise_samples
+  # (B, W, F) → (B*K, W, F)
+  x_0_exp = x_0[:, None].expand(B, K, *x_0.shape[1:]).reshape(B * K, *x_0.shape[1:])
+  t = scheduler.sample_timesteps(B * K, x_0.device)
+  noise = torch.randn_like(x_0_exp)
+  x_t = scheduler.add_noise(x_0_exp, noise, t)
   return F.mse_loss(model(x_t, t), noise)
 
 
@@ -70,8 +80,8 @@ def _save_checkpoint(
   data: dict[str, Any] = {
     "epoch": epoch,
     "model": model.state_dict(),
-    "norm_mean": dataset.mean,
-    "norm_std": dataset.std,
+    "q_low": dataset.q_low,
+    "q_high": dataset.q_high,
     "cfg": {
       **vars(cfg),
       "feature_dim": feature_dim,
@@ -91,7 +101,7 @@ def pretrain(cfg: PretrainCfg) -> Path:
   print(f"[INFO] seed={cfg.seed}")
   device = torch.device(cfg.device)
 
-  dataset = MotionWindowDataset(cfg.data_dir, normalize=cfg.normalize)
+  dataset = MotionWindowDataset(cfg.data_dir, norm_stats_file=cfg.norm_stats_file)
   feature_dim = dataset.feature_dim
   window_size = dataset.window_size
 
@@ -108,7 +118,6 @@ def pretrain(cfg: PretrainCfg) -> Path:
     train_set,
     batch_size=cfg.batch_size,
     shuffle=True,
-    drop_last=True,
     pin_memory=pin_memory,
   )
   val_loader = DataLoader(

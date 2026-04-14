@@ -13,7 +13,8 @@ class PretrainCfg:
 
   # Data
   data_dir: str = "datasets/npz"
-  normalize: bool = True
+  norm_stats_file: str = "datasets/norm_stats.npz"
+  """Path to q01/q99 quantile stats from compute_norm_stats.py."""
   train_split: float = 0.9
 
   # Model
@@ -49,7 +50,7 @@ class PretrainCfg:
   device: str = ""
 
   # Reproducibility
-  seed: int = 0
+  seed: int = 42
 
   def __post_init__(self) -> None:
     if not self.device:
