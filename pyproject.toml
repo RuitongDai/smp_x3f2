@@ -23,18 +23,8 @@ dev = [
   "ruff>=0.14.14",
 ]
 
-[tool.uv]
-override-dependencies = ["mujoco==3.7.0.*"]
-
 [tool.uv.sources]
-mjlab = { git = "https://github.com/mujocolab/mjlab.git", rev = "33fc155" }
-mujoco = { index = "mujoco" }
-
-[[tool.uv.index]]
-name = "mujoco"
-url = "https://py.mujoco.org/"
-explicit = true
-
+mjlab = { git = "https://github.com/mujocolab/mjlab.git", rev = "731fa27" }
 
 [tool.pyright]
 pythonVersion = "3.13"
