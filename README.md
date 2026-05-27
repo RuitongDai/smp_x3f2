@@ -56,12 +56,12 @@ uv sync
 Four downstream tasks are registered with `mjlab.tasks.registry` (importing
 `smp.rl.tasks` self-registers them):
 
-| Task              | Env config                                      | Prior                      | Task objective                              |
-| ----------------- | ----------------------------------------------- | -------------------------- | ------------------------------------------- |
-| `Smp-Forward-G1`  | `src/smp/rl/tasks/steering/forward_env_cfg.py`  | `pretrained_loco.pt`       | walk/jog/run at a commanded `+x` speed      |
-| `Smp-Steering-G1` | `src/smp/rl/tasks/steering/steering_env_cfg.py` | `pretrained_lafan_run.pt`  | track a commanded velocity + facing dir     |
-| `Smp-Location-G1` | `src/smp/rl/tasks/location/location_env_cfg.py` | `pretrained_lafan_run.pt`  | walk to a world-frame xy goal               |
-| `Smp-Getup-G1`    | `src/smp/rl/tasks/getup/getup_env_cfg.py`       | `pretrained_getup_f2s2.pt` | stand up from a fallen pose                 |
+| Task              | Env config                                      | Prior                      | Task objective                          | Demo |
+| ----------------- | ----------------------------------------------- | -------------------------- | --------------------------------------- | :--: |
+| `Smp-Forward-G1`  | `src/smp/rl/tasks/steering/forward_env_cfg.py`  | `pretrained_loco.pt`       | walk/jog/run at a commanded `+x` speed  | <img src="https://raw.githubusercontent.com/SUZ-tsinghua/smp/assets/forward.gif" width="200"/> |
+| `Smp-Steering-G1` | `src/smp/rl/tasks/steering/steering_env_cfg.py` | `pretrained_lafan_run.pt`  | track a commanded velocity + facing dir |  |
+| `Smp-Location-G1` | `src/smp/rl/tasks/location/location_env_cfg.py` | `pretrained_lafan_run.pt`  | walk to a world-frame xy goal           | <img src="https://raw.githubusercontent.com/SUZ-tsinghua/smp/assets/location.gif" width="200"/> |
+| `Smp-Getup-G1`    | `src/smp/rl/tasks/getup/getup_env_cfg.py`       | `pretrained_getup_f2s2.pt` | stand up from a fallen pose             | <img src="https://raw.githubusercontent.com/SUZ-tsinghua/smp/assets/getup.gif" width="200"/> |
 
 ### Train / play
 

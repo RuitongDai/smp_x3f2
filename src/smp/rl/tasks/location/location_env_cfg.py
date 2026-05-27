@@ -48,9 +48,10 @@ def g1_location_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
         (
           mdp.location_position,
           1.0,
-          {"command_name": "location", "pos_err_scale": 0.1},
+          {"command_name": "location", "pos_err_scale": 0.25},
         ),
       ),
+      "ws": 4,
     },
   )
 

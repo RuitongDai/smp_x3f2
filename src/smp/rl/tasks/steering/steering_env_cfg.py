@@ -29,7 +29,7 @@ def g1_steering_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
     rand_tar_dir=True,
     rand_face_dir=True,
     tar_speed_min=0.5,
-    tar_speed_max=3.5,
+    tar_speed_max=2.0,
     debug_vis=True,
   )
 
@@ -50,10 +50,10 @@ def g1_steering_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
       "task_terms": (
         (
           mdp.steering_target_velocity,
-          0.7,
+          0.5,
           {"command_name": "steering", "vel_err_scale": 1.0},
         ),
-        (mdp.steering_face_direction, 0.3, {"command_name": "steering"}),
+        (mdp.steering_face_direction, 0.5, {"command_name": "steering"}),
       ),
     },
   )
