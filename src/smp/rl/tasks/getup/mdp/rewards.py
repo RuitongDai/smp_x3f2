@@ -19,12 +19,9 @@ def track_head_height(
   target_height: float = 1.2,
   scale: float = 6.0,
 ) -> torch.Tensor:
-  """Reward the ``head`` site for reaching ``target_height``.
-
-  ``r = exp(-scale * max(target_height - head_z, 0)^2)`` — saturates at 1 once
-  the head is at/above target, decays below (no penalty for overshoot).
-  Requires the ``head`` site added by ``getup_env_cfg.get_g1_spec_with_head``.
-  """
+  """Reward the ``head`` site reaching ``target_height``:
+  ``exp(-scale·max(target_height − head_z, 0)²)`` (no penalty for overshoot).
+  Needs the ``head`` site from ``getup_env_cfg.get_g1_spec_with_head``."""
   robot = env.scene["robot"]
   head_idx = robot.find_sites(["head"], preserve_order=True)[0][0]
   z = robot.data.site_pos_w[:, head_idx, 2]
@@ -38,14 +35,10 @@ def upward_velocity(
   head_height_threshold: float = 0.6,
   scale: float = 100.0,
 ) -> torch.Tensor:
-  """Reward upward HEAD velocity until the head clears ``head_height_threshold``.
-
-  ``r = exp(-scale * max(target_velocity - head_vz, 0)^2)`` below the threshold,
-  else ``1``.  Uses the head site's world-frame velocity (``site_lin_vel_w``,
-  which includes the ω×r term from the torso pitching up), so it drives the head
-  rising rather than the pelvis.  Requires the ``head`` site added by
-  ``getup_env_cfg.get_g1_spec_with_head``.
-  """
+  """Reward upward HEAD velocity below ``head_height_threshold`` (else ``1``):
+  ``exp(-scale·max(target_velocity − head_vz, 0)²)``.  Uses the head site's world
+  velocity (``site_lin_vel_w``, includes ω×r from torso pitch) so it drives the
+  head, not the pelvis.  Needs ``getup_env_cfg.get_g1_spec_with_head``."""
   robot = env.scene["robot"]
   head_idx = robot.find_sites(["head"], preserve_order=True)[0][0]
   head_z = robot.data.site_pos_w[:, head_idx, 2]

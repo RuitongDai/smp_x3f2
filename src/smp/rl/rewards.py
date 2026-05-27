@@ -17,12 +17,8 @@ if TYPE_CHECKING:
 
 
 def _update_buffer_from_sim(env: ManagerBasedRlEnv) -> None:
-  """Push the current sim kinematics onto the ``MotionFeatureBuffer`` tail.
-
-  Root/EE positions are made env-origin-relative (matching the GSI prime in
-  ``_prime_sim_and_buffer``), so the feature window — and thus the SMP reward —
-  is invariant to where the env sits in the world grid.
-  """
+  """Push current sim kinematics onto the buffer tail, env-origin-relative
+  (matching ``_prime_sim_and_buffer``) so features are placement-invariant."""
   robot = env.scene["robot"]
   ee_indexes = env._smp_ee_indexes  # type: ignore[attr-defined]
   buffer: MotionFeatureBuffer = env._smp_buffer  # type: ignore[attr-defined]
@@ -44,14 +40,10 @@ def smp_guidance_reward(
   ws: float = 4.0,
   normalize: bool = True,
 ) -> torch.Tensor:
-  """SDS-style guidance reward over a fixed timestep set ``K``:
-  ``exp(-w_s/|K| · Σ_{i∈K} ‖ε̂_i − ε_i‖²)``.
-
-  ``normalize`` divides each timestep's MSE by a ``DiffNormalizer`` running mean
-  (value relative to the policy's average) vs. raw MSE (stable absolute scale).
-  Always stashes the per-env mean raw MSE on ``env._smp_raw_err``.  Bundle,
-  buffer, and normalizer are owned by the env (``init_smp_state``).
-  """
+  """SDS-style guidance reward over fixed timesteps ``K``:
+  ``exp(-w_s/|K| · Σ_{i∈K} ‖ε̂_i − ε_i‖²)``.  ``normalize`` divides each MSE by a
+  ``DiffNormalizer`` running mean (policy-relative) vs. raw (absolute scale);
+  always stashes the mean raw MSE on ``env._smp_raw_err``."""
   device = torch.device(env.device)
   model, scheduler, q_low, q_high, _, _ = env._smp_bundle  # type: ignore[attr-defined]
   normalizer: DiffNormalizer = env._smp_normalizer  # type: ignore[attr-defined]
@@ -91,12 +83,8 @@ def task_smp_product(
   fixed_timesteps: tuple[int, ...] = (8, 15, 22),
   ws: float = 6.0,
 ) -> torch.Tensor:
-  """``(Σ wᵢ · taskᵢ(env)) · r_smp`` — generic multiplicative SMP gating.
-
-  ``task_terms`` is a tuple of ``(func, weight, kwargs)`` task-reward components.
-  Requires both a positive task reward and staying on the motion manifold;
-  neither factor can be farmed alone.  Calls ``smp_guidance_reward`` once (the
-  sole SMP-buffer update), so it must be the task's only SMP reward term.
-  """
+  """``(Σ wᵢ · taskᵢ(env)) · r_smp`` — multiplicative SMP gating; ``task_terms`` is
+  a tuple of ``(func, weight, kwargs)``.  Calls ``smp_guidance_reward`` once (the
+  sole SMP-buffer update), so it must be the task's only SMP reward term."""
   task = sum(w * func(env, **kw) for func, w, kw in task_terms)
   return task * smp_guidance_reward(env, fixed_timesteps=fixed_timesteps, ws=ws)

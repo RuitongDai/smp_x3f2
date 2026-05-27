@@ -17,7 +17,7 @@ from smp.rl.tasks.getup import mdp
 HEAD_POS_IN_TORSO: tuple[float, float, float] = (0.0, 0.0, 0.43)
 
 
-def get_g1_spec_with_head() -> mujoco.MjSpec:
+def get_g1_spec_with_head() -> mujoco.MjSpec:  # type: ignore[attr-defined]
   """Stock G1 spec with a massless ``head`` site on ``torso_link``."""
   spec = _get_g1_spec()
   torso = spec.body("torso_link")

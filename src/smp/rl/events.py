@@ -24,10 +24,8 @@ NUM_JOINTS = 29
 
 
 def _maybe_compile(model, compile_model: bool, compile_mode: str | None):
-  """``torch.compile`` ``model``, working around the Inductor ``pad_mm`` pass
-  that crashes when TF32 was set via ``set_float32_matmul_precision``: force a
-  consistent state and disable shape padding.  No-op if ``compile_model`` false.
-  """
+  """``torch.compile`` ``model`` (no-op if ``compile_model`` false), working
+  around the Inductor ``pad_mm`` TF32 crash by disabling shape padding."""
   if not compile_model:
     return model
   torch.set_float32_matmul_precision("high")
@@ -51,16 +49,11 @@ def init_smp_state(
   compile_model: bool = True,
   compile_mode: str | None = None,
 ) -> None:
-  """Startup-mode event: load frozen denoiser, allocate buffer, prime GSI pool.
-
-  Stashes the denoiser bundle, feature buffer, and ``DiffNormalizer`` on the env
-  so the stock mjlab env class stays unsubclassed.  Pre-generates a pool of
-  ``gsi_buffer_size`` denormalized windows (DDPM sampling in ``gsi_batch_size``
-  batches) that ``gsi_reset`` samples from, amortizing the diffusion cost.  When
-  ``compile_model``, the denoiser is ``torch.compile``-d and pre-warmed at both
-  the pool-gen and reward-path (``env.num_envs``) shapes so all Inductor compile
-  happens here, not on the first sim step.
-  """
+  """Startup-mode event: load the frozen denoiser, allocate the feature buffer +
+  ``DiffNormalizer`` (stashed on the env), and pre-generate the GSI pool of
+  ``gsi_buffer_size`` windows that ``gsi_reset`` samples from (amortizes the DDPM
+  cost).  If ``compile_model``, the denoiser is ``torch.compile``-d and pre-warmed
+  so Inductor compiles here, not on the first sim step."""
   del env_ids
   if not ckpt_path:
     msg = (
@@ -120,14 +113,10 @@ def _prime_sim_and_buffer(
   env_ids: torch.Tensor,
   window: torch.Tensor,
 ) -> None:
-  """Common GSI tail: write the last frame to sim, fill the feature buffer.
-
-  The buffer is filled in an env-origin-RELATIVE frame (anchored at the default
-  root xy/yaw); the sim write adds each env's origin so robots spread across the
-  grid.  Keeping the buffer env-relative makes ``compute_features`` (and the SMP
-  reward) invariant to env placement.  Joint velocities are finite-differenced
-  from the joint-angle trajectory (joint_vel is not in the feature window).
-  """
+  """Common GSI tail: write the window's last frame to sim, fill the feature
+  buffer.  The buffer is env-origin-RELATIVE (placement-invariant features) while
+  the sim write adds each env's origin so robots spread across the grid.
+  ``joint_vel`` is finite-differenced from ``joint_pos`` (not in the window)."""
   n, W, _ = window.shape
   E = NUM_EE
   parts = slice_features(window)
@@ -217,11 +206,8 @@ def gsi_refresh(
   num_samples: int = 1024,
   step_interval: int = 2400,
 ) -> None:
-  """Step-mode event: every ``step_interval`` env steps, FIFO-replace
-  ``num_samples`` windows in the GSI pool with fresh DDPM samples so the
-  init-state distribution doesn't stale.  Fires per step; the modulo guard
-  short-circuits on non-trigger steps.
-  """
+  """Step-mode event: every ``step_interval`` steps, FIFO-replace ``num_samples``
+  GSI-pool windows with fresh DDPM samples so the init distribution stays fresh."""
   del env_ids
   cur = int(env.common_step_counter)
   if cur == 0 or (cur % step_interval) != 0:

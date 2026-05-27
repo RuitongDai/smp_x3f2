@@ -1,172 +1,148 @@
-# SMP
+# SMP — Score-Matching Motion Priors (reproduction)
 
-Score-Matching Motion Priors for humanoid motion tracking.  Trains a small
-diffusion model on motion windows; the frozen score is reused as an SDS
-reward during PPO training.  Reproduction of Mu et al. 2025
-(arXiv:2512.03028).
+A reproduction of **SMP: Reusable Score-Matching Motion Priors for Physics-Based
+Character Control** (Mu et al., 2025) on the **Unitree G1** humanoid — the
+original MimicKit implementation does not include a G1 setup, so this repo ports
+the method to G1 end to end (motion features, priors, tasks, and rewards).
 
-## Status
+A small diffusion model (DDPM) is pretrained on motion windows; its **frozen
+score** is then reused as an SDS-style *guidance reward* during PPO, so a policy
+learns naturalistic motion for a downstream task without any per-task motion
+clip or adversarial discriminator.
 
-The simplest downstream task is the **walk-jog-run forward** task: three
-forward-motion clips (walk, jog, run) serve as the pretraining dataset;
-the policy receives a uniformly-sampled target speed in `[0.5, 3.5]` m/s
-and must modulate gait to match it, with a fixed `+x` heading.  It's
-registered as `Smp-Forward-G1` — a fixed-direction specialization of the
-more general `Smp-Steering-G1`.
+This is a reproduction for a course project. It re-implements the SMP idea on top
+of [**mjlab**](https://github.com/mujocolab/mjlab) (the `ManagerBasedRlEnv` and
+`mjlab.scripts.train` / `play` entrypoints are reused). The original method and
+reference implementation are:
 
-The end-to-end pipeline:
+- **Paper:** SMP, Mu et al. 2025 — [arXiv:2512.03028](https://arxiv.org/abs/2512.03028) · [project page](https://yxmu.foo/smp-page/)
+- **Original code:** [`xbpeng/MimicKit`](https://github.com/xbpeng/MimicKit) (see `docs/README_SMP.md`)
 
-1. **CSV → NPZ** — slice motion clips into fixed-length feature windows.
-2. **Normalization stats** — compute per-feature q01/q99 quantiles.
-3. **Diffusion pretraining** — train the DDPM ε-predictor on the windowed data.
-4. **RL** — PPO with the frozen denoiser as an SMP guidance reward plus a
-   steering task reward.
+> The main intentional divergence from the original is the reward composition —
+> see [Reward design](#reward-design-task--smp) below.
 
-## Motion feature representation
+## Provided pretrained priors
 
-Each window frame is a 59-dim vector
+To let you skip pretraining and run RL directly, **three pretrained diffusion
+priors are shipped** in `datasets/pretrain_ckpt/`. Each task's env config already
+points its `init_smp_state` event at the right one, so no setup is needed:
 
-```
-[root_pos(3), root_rot(6), joint_pos(29), ee_pos(15),
- root_lin_vel(3), root_ang_vel(3)]
-```
+| Checkpoint                       | Trained on            | Used by                          |
+| -------------------------------- | --------------------- | -------------------------------- |
+| `pretrained_loco.pt`             | walk / jog / run      | `Smp-Forward-G1`                 |
+| `pretrained_lafan_run.pt`        | LAFAN run subset      | `Smp-Steering-G1`, `Smp-Location-G1` |
+| `pretrained_getup_f2s2.pt`       | get-up (fall→stand)   | `Smp-Getup-G1`                   |
 
-All spatial quantities are anchored to the LAST window frame's yaw-only
-local frame (origin at `pelvis_T`, x-axis = `heading_T`):
+## Setup
 
-- `root_pos` — xy heading-inv relative to `pelvis_T`; z in world.
-- `root_rot` — 6D tan-norm of `heading_inv(T) ⊗ root_quat[t]`.
-- `joint_pos` — raw joint angles (frame-invariant).
-- `ee_pos` — per-frame root offset rotated into the last-frame heading-inv frame.
-- `root_lin_vel`, `root_ang_vel` — last-frame heading-inv.
-
-Tracked end-effectors: `left_ankle_roll_link`, `right_ankle_roll_link`,
-`torso_link` (proxy for head), `left_wrist_yaw_link`, `right_wrist_yaw_link`.
-
-## 1. CSV → NPZ
+[`uv`](https://docs.astral.sh/uv/) is the canonical package manager; dependencies
+(including the pinned `mjlab` git rev) are locked in `uv.lock`.
 
 ```bash
-uv run scripts/csv_to_npz.py \
-  --input-dir datasets/csv/loco \
-  --output-dir datasets/npz/loco
+uv sync
 ```
 
-Each input CSV holds base pose + DoF trajectories for a motion clip.  The
-output NPZ stores `(N, W, 59)` windows; the online feature buffer
-(`smp.rl.utils.MotionFeatureBuffer`) reproduces the same computation at
-RL time.
+## Pipeline
 
-## 2. Normalization stats
+1. **Data processing** (CSV → windowed NPZ → normalization stats) — _TODO (docs pending)._
+2. **Diffusion pretraining** (DDPM ε-predictor on motion windows) — _TODO (docs pending)._
+   You can skip this entirely using the [shipped checkpoints](#provided-pretrained-priors).
+3. **RL** (PPO with the frozen prior as a guidance reward) — documented below.
+
+---
+
+## RL
+
+Four downstream tasks are registered with `mjlab.tasks.registry` (importing
+`smp.rl.tasks` self-registers them):
+
+| Task              | Env config                                      | Prior                      | Task objective                              |
+| ----------------- | ----------------------------------------------- | -------------------------- | ------------------------------------------- |
+| `Smp-Forward-G1`  | `src/smp/rl/tasks/steering/forward_env_cfg.py`  | `pretrained_loco.pt`       | walk/jog/run at a commanded `+x` speed      |
+| `Smp-Steering-G1` | `src/smp/rl/tasks/steering/steering_env_cfg.py` | `pretrained_lafan_run.pt`  | track a commanded velocity + facing dir     |
+| `Smp-Location-G1` | `src/smp/rl/tasks/location/location_env_cfg.py` | `pretrained_lafan_run.pt`  | walk to a world-frame xy goal               |
+| `Smp-Getup-G1`    | `src/smp/rl/tasks/getup/getup_env_cfg.py`       | `pretrained_getup_f2s2.pt` | stand up from a fallen pose                 |
+
+### Train / play
 
 ```bash
-uv run scripts/compute_norm_stats.py \
-  --input-dir datasets/npz/loco \
-  --output datasets/norm_stats.npz
+# Train (checkpoints land under logs/)
+uv run scripts/train.py Smp-Forward-G1 --env.scene.num-envs=4096
+
+# Play a trained policy from a W&B run
+uv run scripts/play.py Smp-Forward-G1 --wandb-run-path <org>/<project>/<run> --num-envs 4
 ```
 
-Computes per-feature q01 / q99 for mapping to `[-1, 1]`.  If you have a
-larger motion database available (e.g. LAFAN), fit the stats on that to
-give a wider normalization range — the RL policy drifts outside the narrow
-walk/jog/run distribution during training, and a too-tight normalizer
-makes those states look OOD.
+Swap the task id for any of the four. Because the priors are shipped and already
+wired into each env config, no editing is required before training.
 
-## 3. Diffusion pretraining
+### Reward design: `task × SMP`
 
-DDPM ε-prediction with a cosine-β schedule (50 timesteps), optional EMA on
-weights, and multi-noise-sample L1 loss for variance reduction.  Each run
-is identified by `--name`; the final checkpoint lands at
-`logs/pretrain/<name>/<timestamp>/pretrained.pt`.
+Every task uses a single **multiplicative** reward term, `task_smp_product`:
 
-`--num-noise-samples` controls the number of `(t, ε)` draws per data point
-in the loss.  Larger values give lower-variance gradients at the cost of
-more compute per step; use a higher value when the dataset is small (the
-gradient noise dominates) and a lower value when the dataset is large.
-
-### Forward task (walk / jog / run)
-
-Three forward-motion clips → small score field over a narrow gait
-distribution.  Pretrain on `datasets/npz/loco/`:
-
-```bash
-uv run scripts/pretrain.py \
-  --data-dir datasets/npz/loco/ \
-  --num-layers 2 --d-model 128 --no-use-ema \
-  --num-noise-samples 50 \
-  --num-epochs 10000 --save-interval 5000 \
-  --train-split 1.0 \
-  --name pretrain-forward
+```
+r  =  ( Σᵢ wᵢ · taskᵢ(s) )  ×  r_smp(s)
 ```
 
-### Steering / Location tasks (LAFAN run)
+where `r_smp = exp(−wₛ/|K| · Σ_{i∈K} ‖ε̂_i − ε_i‖²)` is the SDS guidance reward
+(the frozen denoiser's ε-prediction error at a fixed set of diffusion timesteps
+`K`, per-timestep normalized).
 
-A larger LAFAN run subset → broader score field that covers turning,
-non-axis-aligned headings, and longer locomotion.  Pretrain on
-`datasets/npz/lafan_run/`:
+This is the **key divergence from the original SMP / MimicKit**, which combines
+the two **additively** and balances them with separate weights
+(`task_reward_weight`, `smp_reward_weight`):
 
-```bash
-uv run scripts/pretrain.py \
-  --data-dir datasets/npz/lafan_run/ \
-  --num-layers 2 --d-model 128 --no-use-ema \
-  --num-noise-samples 10 \
-  --num-epochs 5000 --save-interval 1000 \
-  --train-split 1.0 \
-  --name pretrain-lafan-run
+```
+# original (additive):     r = task_reward_weight · task  +  smp_reward_weight · r_smp
+# here     (multiplicative): r = task · r_smp
 ```
 
-### Visualize unconditional samples
+We want the policy to **complete the task _while_ keeping the SMP reward high** —
+which is exactly what a product expresses: it is large only when *both* factors
+are large, and collapses toward 0 if *either* drops. This makes reward tuning
+**easier and more robust**:
 
-```bash
-uv run scripts/generate_viz.py \
-  --ckpt-path logs/pretrain/<name>/<timestamp>/pretrained.pt
+- **No task-vs-prior weight to balance.** The additive form needs a
+  `task_reward_weight : smp_reward_weight` ratio whose sweet spot shifts per task
+  (and per training stage); the product removes that knob entirely.
+- **Neither term can be farmed alone.** Additively, a policy can max one term and
+  ignore the other — e.g. stand still looking natural (high prior, no task
+  progress) or lunge at the goal off-manifold (high task, low prior). With the
+  product both failure modes score ≈ 0, so the only way to earn reward is to do
+  the task *and* stay on the motion manifold.
+
+Per-task `taskᵢ` components (combined, then gated by `r_smp`):
+
+- **Forward / Steering** — velocity tracking `exp(−·‖v_cmd − v_xy‖²)` (zeroed when
+  velocity projects backwards); Steering adds a facing-direction term
+  (`0.7·vel + 0.3·face`).
+- **Location** — position tracking `exp(−·‖xy_goal − xy_robot‖²)` toward a
+  periodically resampled world-frame goal.
+- **Get-up** — `0.7·` upward head velocity `+ 0.3·` head-height tracking.
+
+### Generative State Initialization (GSI)
+
+On every reset, an init state is drawn from a pool of windows pre-sampled from the
+frozen prior; its last frame seeds the sim state and the whole window primes the
+online feature buffer, so `r_smp` is meaningful from step 0. Each env is reset to
+its own scene origin while the feature buffer is kept **env-origin-relative**, so
+the guidance reward is invariant to where the env sits in the world grid.
+
+### Motion features
+
+The guidance reward scores a rolling window of motion features rebuilt online by
+`smp.rl.utils.MotionFeatureBuffer`, matching the pretraining layout (59-dim/frame
+for G1), anchored to the last frame's yaw-only local frame:
+
+```
+[root_pos(3), root_rot(6), joint_pos(29), ee_pos(15), root_lin_vel(3), root_ang_vel(3)]
 ```
 
-Runs unconditional DDPM ancestral sampling and plays back the resulting
-window in a viser viewer.  The pelvis trajectory is reconstructed directly
-from the `root_pos` / `root_rot` features anchored at the robot's default
-standing pose.
+## Citation & acknowledgements
 
-## 4. RL
+This repository reproduces SMP; please cite the original work and credit the
+reference implementation:
 
-Three downstream tasks are registered:
-
-| Task                  | Env cfg                                              | Pretrained ckpt to use   |
-| --------------------- | ---------------------------------------------------- | ------------------------ |
-| `Smp-Forward-G1`      | `src/smp/rl/tasks/steering/forward_env_cfg.py`       | `pretrain-forward`       |
-| `Smp-Steering-G1`     | `src/smp/rl/tasks/steering/steering_env_cfg.py`      | `pretrain-lafan-run`     |
-| `Smp-Location-G1`     | `src/smp/rl/tasks/location/location_env_cfg.py`      | `pretrain-lafan-run`     |
-
-**Before training, edit the per-task env_cfg.py and point the
-`init_smp_state` event's `ckpt_path` param at the `.pt` file you produced
-in step 3.**  For example, in `forward_env_cfg.py`:
-
-```python
-cfg.events["init_smp_state"].params["ckpt_path"] = (
-  "logs/pretrain/pretrain-forward/<timestamp>/pretrained.pt"
-)
-```
-
-Then:
-
-```bash
-# Train (replace task id as needed)
-uv run scripts/train.py Smp-Forward-G1
-
-# Play
-uv run scripts/play.py Smp-Forward-G1 --wandb-run-path <org>/<project>/<run>
-```
-
-Common reward terms (defined on `g1_smp_env_cfg` and overlaid per task):
-
-- **SMP guidance reward** (weight `1.0`): ensemble SDS at diffusion
-  timesteps `K = (8, 15, 22)` with `w_s = 4.0` (forward) or `6.0`
-  (steering / location), per-timestep normalization via `DiffNormalizer`.
-- **Velocity tracking** (steering / forward): `exp(-vel_err_scale ·
-  ‖tar_speed·tar_dir − v_xy‖²)`, zeroed when the velocity projects
-  negatively onto the target.
-- **Face direction** (steering only): clipped dot product between the
-  commanded face direction and the robot's heading direction.
-- **Position tracking** (location only): `exp(-pos_err_scale · ‖xy_goal −
-  xy_robot‖²)` toward a periodically resampled world-frame xy goal.
-- **GSI reset**: every episode reset draws a full window from the frozen
-  denoiser and uses it to prime the feature buffer and set the initial
-  joint / velocity state on sim.
+- **SMP** — Mu et al., *Reusable Score-Matching Motion Priors for Physics-Based Character Control*, 2025. [arXiv:2512.03028](https://arxiv.org/abs/2512.03028)
+- **MimicKit** — the original SMP implementation: <https://github.com/xbpeng/MimicKit>
+- **mjlab** — RL environment backbone: <https://github.com/mujocolab/mjlab>

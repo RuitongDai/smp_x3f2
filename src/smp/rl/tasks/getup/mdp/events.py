@@ -12,11 +12,8 @@ __all__ = ["reset_stand_counter"]
 def reset_stand_counter(
   env: ManagerBasedRlEnv, env_ids: torch.Tensor | None = None
 ) -> None:
-  """Zero the ``stood_up`` standing-hold counter for the reset envs.
-
-  Kept separate from the shared ``gsi_reset`` (which only primes state) so that
-  can be reused unchanged.  No-op until ``stood_up`` lazily creates the counter.
-  """
+  """Zero the ``stood_up`` standing-hold counter for the reset envs (no-op until
+  ``stood_up`` lazily creates it).  Separate from ``gsi_reset`` so it stays reusable."""
   if not hasattr(env, "_getup_stand_count"):
     return
   if env_ids is None:

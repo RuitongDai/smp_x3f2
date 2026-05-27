@@ -22,10 +22,8 @@ def load_denoiser(
   ckpt_path: str,
   device: torch.device | str,
 ) -> tuple[DiffusionDenoiser, DDPMScheduler, torch.Tensor, torch.Tensor, int, int]:
-  """Load a frozen pretrained denoiser checkpoint.
-
-  Returns ``(model, scheduler, q_low, q_high, feature_dim, window_size)``.
-  """
+  """Load a frozen pretrained denoiser checkpoint → ``(model, scheduler, q_low,
+  q_high, feature_dim, window_size)``."""
   device = torch.device(device)
 
   ckpt: dict[str, Any] = torch.load(ckpt_path, map_location=device, weights_only=False)
@@ -57,11 +55,8 @@ def load_denoiser(
 
 
 class DiffNormalizer:
-  """Count-based running mean, one scalar per diffusion timestep.
-
-  Equal-weighted over all samples, so it freezes as the count grows — a stable
-  reference scale for SDS MSE values, unlike an EMA that drifts with the policy.
-  """
+  """Count-based running mean per diffusion timestep: equal-weighted, so it
+  freezes as the count grows — a stable SDS-MSE reference, unlike a drifting EMA."""
 
   def __init__(
     self,
@@ -95,18 +90,15 @@ class DiffNormalizer:
 
 
 class MotionFeatureBuffer:
-  """Rolling per-env buffer of the last ``window_size`` world-frame kinematic
-  samples.  ``compute_features()`` returns a window anchored at the LAST frame's
-  yaw-only local frame, layout (matching ``scripts/csv_to_npz.py``):
+  """Rolling per-env buffer of the last ``window_size`` kinematic samples;
+  ``compute_features()`` returns a window anchored at the LAST frame's yaw-only
+  local frame, layout (matching ``scripts/csv_to_npz.py``):
 
       ``[root_pos(3), root_rot(6), joint_pos(J), ee_pos(E*3),
          root_lin_vel(3), root_ang_vel(3)]``
 
-  ``joint_vel`` is stored for API symmetry but is NOT part of the output.
-
-  Positions are stored in whatever frame the caller supplies; SMP RL feeds
-  env-origin-relative positions so features are invariant to env placement.
-  """
+  ``joint_vel`` is stored for symmetry but excluded from the output.  Positions
+  use the caller's frame (SMP RL feeds env-origin-relative)."""
 
   def __init__(
     self,
@@ -180,11 +172,8 @@ class MotionFeatureBuffer:
     self.joint_vel[:, -1] = joint_vel
 
   def compute_features(self) -> torch.Tensor:
-    """Return motion features ``(num_envs, W, 3+6+J+E*3+3+3)``.
-
-    All spatial quantities anchored to the LAST window frame's yaw-only local
-    frame.  See the class docstring for the layout.
-    """
+    """Return features ``(num_envs, W, 3+6+J+E*3+3+3)``, all anchored to the LAST
+    frame's yaw-only local frame (layout in the class docstring)."""
     N = self.num_envs
     W = self.window_size
     E = self.num_ee

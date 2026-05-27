@@ -14,15 +14,10 @@ def stood_up(
   max_speed: float = 0.5,
   hold_steps: int = 10,
 ) -> torch.Tensor:
-  """Truncate the episode once the robot is STABLY standing (success).
-
-  Standing = head at/above ``head_height`` AND base speed below ``max_speed``,
-  sustained for ``hold_steps`` consecutive steps (a per-env counter, zeroed on
-  reset by ``reset_stand_counter``) so a transient bob doesn't count.  Wire with
-  ``time_out=True`` so it is a TRUNCATION: the value bootstraps from the
-  standing state instead of being zeroed, otherwise ending on success would
-  make standing look worthless and the policy would avoid it.
-  """
+  """Truncate once STABLY standing (success): head ≥ ``head_height`` and base
+  speed < ``max_speed`` for ``hold_steps`` consecutive steps (counter zeroed by
+  ``reset_stand_counter``).  Wire ``time_out=True`` so it's a TRUNCATION — the
+  value bootstraps from the standing state, else standing looks worthless."""
   robot = env.scene["robot"]
   head_idx = robot.find_sites(["head"], preserve_order=True)[0][0]
   z = robot.data.site_pos_w[:, head_idx, 2]
@@ -42,14 +37,10 @@ def smp_too_low(
   ws: float = 6.0,
   grace_steps: int = 15,
 ) -> torch.Tensor:
-  """Terminate when the SMP guidance score has collapsed (off-manifold).
-
-  Scores ``exp(-ws · env._smp_raw_err)`` — the RAW (un-normalized) MSE stashed by
-  ``smp_guidance_reward``, a stable absolute realism scale, so a fixed threshold
-  is meaningful.  Removes the "violent get-up" shortcut: leaving the motion
-  manifold drives the score toward 0 and ends the episode.  ``ws`` must match the
-  reward's; ``grace_steps`` skips the first steps after reset.
-  """
+  """Terminate when the SMP score collapses (off-manifold): end if
+  ``exp(-ws·env._smp_raw_err) < threshold`` past ``grace_steps``.  Uses the RAW MSE
+  (stable absolute scale), so ``ws`` must match the reward's.  Kills the "violent
+  get-up" shortcut — leaving the manifold drives the score to 0."""
   raw_err = getattr(env, "_smp_raw_err", None)
   if raw_err is None:
     return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)

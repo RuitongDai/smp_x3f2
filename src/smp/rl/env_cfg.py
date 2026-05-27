@@ -37,11 +37,8 @@ from smp.rl.events import (
 
 
 def g1_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
-  """Build the shared G1 + SMP env cfg.
-
-  The denoiser checkpoint path is set on the ``init_smp_state`` event below;
-  override it from the task config.
-  """
+  """Build the shared G1 + SMP env cfg (denoiser ckpt path set on
+  ``init_smp_state`` below; override it from the task config)."""
 
   # --- Observations --------------------------------------------------------
   actor_terms = {
