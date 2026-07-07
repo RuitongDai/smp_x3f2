@@ -1,4 +1,6 @@
-"""Diffusion model pretraining loop."""
+"""Diffusion model pretraining loop.
+python scripts/pretrain.py --data_dir datasets/npz_x3f2 --norm_stats_file datasets/norm_stats_x3f2.npz
+"""
 
 from __future__ import annotations
 

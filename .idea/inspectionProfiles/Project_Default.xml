@@ -1,0 +1,80 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="absl-py" />
+          <option value="evdev" />
+          <option value="filelock" />
+          <option value="flatbuffers" />
+          <option value="fonttools" />
+          <option value="fsspec" />
+          <option value="future" />
+          <option value="glfw" />
+          <option value="imageio" />
+          <option value="importlib_resources" />
+          <option value="iso8601" />
+          <option value="kiwisolver" />
+          <option value="MarkupSafe" />
+          <option value="matplotlib" />
+          <option value="mujoco" />
+          <option value="nvidia-cublas-cu12" />
+          <option value="nvidia-cuda-cupti-cu12" />
+          <option value="nvidia-cuda-nvrtc-cu12" />
+          <option value="nvidia-cuda-runtime-cu12" />
+          <option value="nvidia-cudnn-cu12" />
+          <option value="nvidia-cufft-cu12" />
+          <option value="nvidia-cufile-cu12" />
+          <option value="nvidia-curand-cu12" />
+          <option value="nvidia-cusolver-cu12" />
+          <option value="nvidia-cusparse-cu12" />
+          <option value="nvidia-cusparselt-cu12" />
+          <option value="nvidia-nccl-cu12" />
+          <option value="nvidia-nvjitlink-cu12" />
+          <option value="nvidia-nvtx-cu12" />
+          <option value="onnxruntime" />
+          <option value="opencv-python" />
+          <option value="packaging" />
+          <option value="pillow" />
+          <option value="pygame" />
+          <option value="PyOpenGL" />
+          <option value="pyparsing" />
+          <option value="pyrealsense2" />
+          <option value="pyserial" />
+          <option value="python-dateutil" />
+          <option value="PyYAML" />
+          <option value="six" />
+          <option value="torch" />
+          <option value="tqdm" />
+          <option value="triton" />
+          <option value="typing_extensions" />
+          <option value="websockets" />
+          <option value="zipp" />
+          <option value="coloredlogs" />
+          <option value="contourpy" />
+          <option value="cycler" />
+          <option value="etils" />
+          <option value="grpcio" />
+          <option value="grpcio-tools" />
+          <option value="humanfriendly" />
+          <option value="Jinja2" />
+          <option value="mpmath" />
+          <option value="mujoco-python-viewer" />
+          <option value="networkx" />
+          <option value="numpy" />
+          <option value="protobuf" />
+          <option value="scipy" />
+          <option value="sympy" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyStubPackagesAdvertiser" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="scipy" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

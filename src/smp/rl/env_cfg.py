@@ -34,6 +34,10 @@ from smp.rl.events import (
   gsi_reset,
   init_smp_state,
 )
+from x3.x3_constants import (
+  X3F2_ACTION_SCALE,
+  get_x3f2_robot_cfg,
+)
 
 
 def g1_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
