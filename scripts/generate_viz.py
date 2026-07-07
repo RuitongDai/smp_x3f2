@@ -12,6 +12,8 @@
 注意：
 当前 feature_to_state.py 的 38 维布局：
   root_pos(3) + root_rot(6) + joint_pos(14) + ee_pos(9) + root_lin_vel(3) + root_ang_vel(3)
+
+  python scripts/generate_viz.py --ckpt_path datasets/pretrained.pt
 """
 
 from __future__ import annotations

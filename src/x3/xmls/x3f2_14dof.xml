@@ -1,5 +1,8 @@
 <mujoco model="F2">
   <compiler angle="radian" meshdir="./meshes/"/>
+  <default>
+  <joint damping="0.1" armature="0.01" frictionloss="0.01"/>
+  </default>
 
   <asset>
     <mesh name="pelvis" file="pelvis.STL"/>
@@ -190,10 +193,10 @@
     <material name="plane" texture="plane" texuniform="true" texrepeat="2 2" reflectance="0.0"/>
   </asset>
 
-  <worldbody>
-    <light mode="trackcom" pos="1 0 3.5" dir="0 0 -1" directional="true"/>
-    <geom name="floor" size="0 0 0.05" type="plane" material="plane" friction="1.0" />
-  </worldbody>
+<!--  <worldbody>-->
+<!--    <light mode="trackcom" pos="1 0 3.5" dir="0 0 -1" directional="true"/>-->
+<!--    <geom name="floor" size="0 0 0.05" type="plane" material="plane" friction="1.0" />-->
+<!--  </worldbody>-->
 
     <sensor>
     <gyro name="imu_ang_vel" site="imu_in_pelvis"/>
