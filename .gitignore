@@ -14,4 +14,3 @@ wandb/
 *.pth
 *.ckpt
 outputs/
-datasets/
