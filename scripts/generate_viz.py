@@ -39,7 +39,7 @@ from smp.utils import detect_device
 
 @dataclass
 class Cfg:
-  ckpt_path: str = ""
+  ckpt_path: str = "logs/pretrain/pretrain/20260707_152617/pretrained.pt"
   """本地 SMP diffusion checkpoint 路径，通常是 pretrained.pt。"""
 
   wandb_run: str = ""

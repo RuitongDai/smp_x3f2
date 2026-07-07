@@ -10,7 +10,6 @@ build/
 logs/
 wandb/
 .ruff_cache/
-*.pt
 *.pth
 *.ckpt
 outputs/
