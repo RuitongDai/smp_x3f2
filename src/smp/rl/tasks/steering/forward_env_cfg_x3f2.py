@@ -62,7 +62,7 @@ def x3f2_forward_smp_env_cfg(play: bool = False) -> ManagerBasedRlEnvCfg:
 
   # --- Events --------------------------------------------------------------
   cfg.events["init_smp_state"].params["ckpt_path"] = (
-    "datasets/pretrained.pt"
+    "/home/dai/github/smp/logs/pretrain/pretrain/20260707_192129/pretrained.pt"
   )
 
   # --- Terminations --------------------------------------------------------
